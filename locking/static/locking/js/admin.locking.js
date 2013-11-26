@@ -97,7 +97,7 @@ var DJANGO_LOCKING = DJANGO_LOCKING || {};
             self.onLinkClick(evt);
         });
         $('input').each(function () {
-            $(this).change(function() {
+            $(this).focus(function() {
                 if (self.warningTimeout) {
                     clearTimeout(self.warningTimeout);
                     self.warningTimeout= null;
@@ -342,6 +342,7 @@ var DJANGO_LOCKING = DJANGO_LOCKING || {};
                     msg = "You lost your lock.";
                     self.updateNotification(self.text.has_expired, data);
                     alert(msg);
+                    self.disableForm();
                 }
             });
         },
