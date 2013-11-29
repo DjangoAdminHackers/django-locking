@@ -96,7 +96,7 @@ var DJANGO_LOCKING = DJANGO_LOCKING || {};
         $('a').bindFirst('click', function(evt) {
             self.onLinkClick(evt);
         });
-        $('input').each(function () {
+        $(':input').each(function () {
             $(this).focus(function() {
                 if (self.warningTimeout) {
                     clearTimeout(self.warningTimeout);
@@ -115,7 +115,6 @@ var DJANGO_LOCKING = DJANGO_LOCKING || {};
                 self.$notificationElement.fadeOut('slow');
             });
         });
-
         if (self.urls.lock) {
             self.refreshLock();
 
@@ -141,7 +140,7 @@ var DJANGO_LOCKING = DJANGO_LOCKING || {};
                 'grp-add-handler', 'add-handler',
                 'add-another',
                 'grp-delete-handler', 'delete-handler',
-                'delete-link',
+                'delete-link', 'deletelink',
                 'remove-handler', 'grp-remove-handler',
                 'arrow-up-handler', 'grp-arrow-up-handler',
                 'arrow-down-handler', 'grp-arrow-down-handler'
@@ -339,9 +338,6 @@ var DJANGO_LOCKING = DJANGO_LOCKING || {};
                     if (self.refreshTimeout) {
                         clearTimeout(self.refreshTimeout);
                     }
-                    msg = "You lost your lock.";
-                    self.updateNotification(self.text.has_expired, data);
-                    alert(msg);
                     self.disableForm();
                 }
             });
