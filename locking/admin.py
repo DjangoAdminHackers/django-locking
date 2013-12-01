@@ -12,14 +12,16 @@ from django.utils import html as html_utils
 from django.utils.functional import curry
 from django.utils.timesince import timeuntil
 from django.utils.translation import ugettext as _
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_protect
+from django.template.response import TemplateResponse
 
 from .models import Lock
 from .forms import locking_form_factory
 from . import settings as locking_settings, views as locking_views
 
-
 json_encode = json.JSONEncoder(indent=4).encode
-
+csrf_protect_m = method_decorator(csrf_protect)
 
 class LockableAdminMixin(object):
 
@@ -86,6 +88,22 @@ class LockableAdminMixin(object):
                 name="%s_%s_lock_status" % info))
         urlpatterns += super(LockableAdminMixin, self).get_urls()
         return urlpatterns
+
+    @csrf_protect_m
+    def changelist_view(self, request, extra_context=None):
+        """
+        Append locking media to the changelist view.
+
+        This method will not work properly on django <= 1.2
+        """
+        response = super(LockableAdminMixin, self).changelist_view(request, extra_context)
+        if isinstance(response, TemplateResponse):
+            try:
+                response.context_data['media'] += self.locking_media()
+            except KeyError:
+                pass
+        return response
+
 
     def render_change_form(self, request, context, add=False, obj=None, **kwargs):
         if not add and getattr(obj, 'pk', None):

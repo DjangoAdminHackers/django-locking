@@ -60,6 +60,8 @@ var DJANGO_LOCKING = DJANGO_LOCKING || {};
         this.$notificationElement = $(notificationElement);
         this.config = DJANGO_LOCKING.config || {};
         this.urls = this.config.urls || {};
+        this.time_until_warning = this.config.time_until_warning || 540;
+        this.time_until_expiration = this.config.time_until_expiration || 600
 
         for (var key in this.text) {
             if (typeof gettext == 'function') {
@@ -94,8 +96,35 @@ var DJANGO_LOCKING = DJANGO_LOCKING || {};
         $('a').bindFirst('click', function(evt) {
             self.onLinkClick(evt);
         });
-        
-        this.refreshLock();
+        $(':input').each(function () {
+            $(this).focus(function() {
+                if (self.warningTimeout) {
+                    clearTimeout(self.warningTimeout);
+                    self.warningTimeout= null;
+                }
+                if (self.expirationTimeout) {
+                    clearTimeout(self.expirationTimeout);
+                    self.expirationTimeout= null;
+                }
+                if (self.time_until_warning) {
+                    self.warningTimeout = setTimeout(function() { self.displayWarning(); }, self.time_until_warning * 1000);
+                }
+                if (self.time_until_expiration) {
+                    self.expirationTimeout = setTimeout(function() { self.clearLock(); }, self.time_until_expiration * 1000);
+                }
+                self.$notificationElement.fadeOut('slow');
+            });
+        });
+        if (self.urls.lock) {
+            self.refreshLock();
+
+            if (self.time_until_warning) {
+                self.warningTimeout = setTimeout(function() { self.displayWarning(); }, self.time_until_warning * 1000);
+            }
+            if (self.time_until_expiration) {
+                self.expirationTimeout = setTimeout(function() { self.clearLock(); }, self.time_until_expiration * 1000);
+            }
+        }
     };
 
     $.extend(LockManager.prototype, {
@@ -111,7 +140,7 @@ var DJANGO_LOCKING = DJANGO_LOCKING || {};
                 'grp-add-handler', 'add-handler',
                 'add-another',
                 'grp-delete-handler', 'delete-handler',
-                'delete-link',
+                'delete-link', 'deletelink',
                 'remove-handler', 'grp-remove-handler',
                 'arrow-up-handler', 'grp-arrow-up-handler',
                 'arrow-down-handler', 'grp-arrow-down-handler'
@@ -196,9 +225,20 @@ var DJANGO_LOCKING = DJANGO_LOCKING || {};
             }
             $(document).trigger('locking:disabled');
         },
+        displayWarning: function() {
+            var promt_to_save = function() {
+                if (confirm(this.text.prompt_save)) {
+                    $('form input[type=submit][name=_continue]').click();
+                }
+            }
+            var minutes = Math.round((this.time_until_expiration - 
+                this.time_until_warning) / 60);
+            if (minutes < 1) minutes = 1;
+                this.updateNotification(this.text.warn, {"minutes": minutes});
+        },
         text: {
-            warn:        'Your lock on this page expires in less than %s ' +
-                         'minutes. Press save or <a href="">reload the page</a>.',
+            warn:        'Your lock on this page expires in less than %(minutes)s ' +
+                         'minute(s). Press save or <a href="">reload the page</a>.',
             lock_removed: 'User "%(locked_by_name)s" removed your lock. If you save, ' +
                          'your attempts may be thwarted due to another lock ' +
                          ' or you may have stale data.',
@@ -212,11 +252,10 @@ var DJANGO_LOCKING = DJANGO_LOCKING || {};
         lockOwner: null,
         currentUser: null,
         refreshTimeout: null,
+        warningTimeout: null,
+        expirationTimeout: null,
         lockingSupport: true,  // false for changelist views and new objects
         refreshLock: function() {
-            if (!this.urls.lock) {
-                return;
-            }
             var self = this;
 
             $.ajax({
@@ -279,6 +318,29 @@ var DJANGO_LOCKING = DJANGO_LOCKING || {};
             $('html, body').scrollTop(0);
             text = interpolate(text, data, true);
             this.$notificationElement.html(text).hide().fadeIn('slow');
+        },
+        clearLock: function() {
+            // We have to assure that our lock_clear request actually
+            // gets through before the user leaves the page, so it
+            // shouldn't run asynchronously.
+            var self = this;
+            if (!self.urls.lock_clear) {
+                return;
+            }
+            if (!self.lockingSupport) {
+                return;
+            }
+            $.ajax({
+                url: self.urls.lock_clear,
+                async: false,
+                cache: false,
+                success: function(data, textStatus, jqXHR) {
+                    if (self.refreshTimeout) {
+                        clearTimeout(self.refreshTimeout);
+                    }
+                    self.disableForm();
+                }
+            });
         },
         // Locking toggle function
         removeLockOnClick: function(e) {
